@@ -25,4 +25,8 @@ func main() {
 
 	fmt.Println(aG)
 
+	// 多个变量
+	var aa, bb = 100, "123"
+
+	fmt.Println(aa, bb)
 }
