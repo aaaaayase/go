@@ -19,7 +19,7 @@ func changeBook2(book *Book) {
 	(*book).title = "xiyou"
 }
 
-func main() {
+func test1() {
 	var a myint = 10
 	fmt.Println(a)
 	var book1 Book
@@ -30,4 +30,10 @@ func main() {
 	fmt.Printf("%v\n", book1)
 	changeBook2(&book1)
 	fmt.Printf("%v\n", book1)
+}
+
+func main() {
+	//test1()
+	Test3()
+
 }
