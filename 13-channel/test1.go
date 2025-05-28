@@ -19,5 +19,6 @@ func test1() {
 
 func main() {
 	//test1()
-	Test2()
+	//Test2()
+	Test4()
 }
