@@ -1,0 +1,673 @@
+syntax = "proto3";
+option go_package = ".;service";
+
+// 所有 rpc 都遵循的通用 gRPC Status Code
+// https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+//  INVALID_ARGUMENT | 缺少参数或者参数错误
+//  INTERNAL | 服务内部错误
+service Auth {
+  // 聚合登录。
+  // 验证 IdP 提供的 Credential，返回聚合用户标识 Combo ID 与 IdP 中的身份信息
+  // 调用方需要处理的，特定业务逻辑的 gRPC Status Code
+  // InvalidArgument | 缺少参数或者参数错误
+  // UNAUTHENTICATED | IdP 提供的 Credential 验证不通过
+  // PermissionDenied | IdP 提供的 Credential 验证通过，但是该用户被封禁
+  rpc SignIn(SignInRequest) returns (SignInResponse) {}
+
+  // 为已有的 Combo ID 关联更多 IdP 的身份。
+  // 调用方需要处理的，特定业务逻辑的 gRPC Status Code
+  //  NOT_FOUND | 指定的 Combo ID 不存在
+  //  UNAUTHENTICATED | IdP 提供的 Credential 验证不通过
+  rpc LinkIdentity(LinkIdentityRequest) returns (LinkIdentityResponse);
+
+  // 解除关联得 IdP。
+  // 该功能需要配置开关进行开放。
+  rpc UnlinkIdentity(UnlinkIdentityRequest) returns (UnlinkIdentityResponse);
+
+  // 删除 Combo User，包括关联的 IdP 数据也会被同时删除。
+  // 该功能需要配置开关进行开放。
+  rpc DeleteIdentities (DeleteIdentitiesRequest) returns (DeleteIdentitiesResponse);
+
+  // 对 Combo ID 关联的某个 Identity 进行实名认证（真实姓名 + 身份证号）
+  rpc AuthRealName(AuthRealNameRequest) returns (AuthRealNameResponse) {}
+
+  // 获取外部用户的聚合信息
+  // 调用方需要处理的，特定业务逻辑的 gRPC Status Code
+  //  NOT_FOUND | 指定的外部用户不存在
+  // Deprecated: 请使用 GetIdentitiesByExternalId 代替
+  rpc GetIdentity(GetIdentityRequest) returns (GetIdentityResponse) {
+    option deprecated = true;
+  }
+
+  // 根据 外部身份标识（external_id）获取用户的聚合信息
+  rpc GetIdentitiesByExternalId(GetIdentitiesByExternalIdRequest) returns (GetIdentitiesByExternalIdResponse) {}
+
+  // 获取聚合用户所关联的所有身份，返回简略的身份信息。
+  // 调用方需要处理的，特定业务逻辑的 gRPC Status Code
+  //  NOT_FOUND | 指定的 Combo ID 不存在
+  // Deprecated: 请使用 GetIdentitiesByComboId 代替
+  rpc GetIdentities(GetIdentitiesRequest) returns (GetIdentitiesResponse) {
+    option deprecated = true;
+  }
+
+  // 根据 combo_id 获取用户的所有身份，返回完整的身份信息。
+  rpc GetIdentitiesByComboId(GetIdentitiesByComboIdRequest) returns (GetIdentitiesByComboIdResponse) {}
+
+  // 获取聚合用户身份的客户端元数据。
+  // 客户端元数据是在首次 SignIn 或 LinkIdentity 时写入的。
+  // 调用方需要处理的，特定业务逻辑的 gRPC Status Code
+  //  NOT_FOUND | 指定的 Combo ID 不存在，或 Combo ID 未关联指定的 IdP
+  rpc GetClientMeta(GetClientMetaRequest) returns (GetClientMetaResponse);
+
+  // 获取所有当前支持的 Identity Provider 的元数据
+  rpc DescribeIdentityProviders(DescribeIdentityProvidersRequest) returns (DescribeIdentityProvidersResponse) {}
+
+  // 获取配置信息
+  rpc DescribeService(DescribeServiceRequest) returns (DescribeServiceResponse) {}
+
+  // 封禁数据管理接口
+  rpc AddDenylist(AddDenylistRequest) returns (AddDenylistResponse) {}
+  rpc RemoveDenylist(RemoveDenylistRequest) returns (RemoveDenylistResponse) {}
+  rpc QueryDenylist(QueryDenylistRequest) returns (QueryDenylistResponse) {}
+  rpc ListDenylist(ListDenylistRequest) returns (ListDenylistResponse) {}
+}
+
+// 客户端元数据
+message ClientMeta {
+  // 客户端来源 IP，可以是 IPv4 或者 IPv6
+  string ip_address = 1;
+  // 客户端的 User-Agent
+  string user_agent = 2;
+  // OmniSDK 的版本号
+  string sdk_version = 3;
+  // 客户端的发行版本
+  string distro = 4;
+  // 客户端的运行平台
+  string platform = 5;
+  // 客户端的语言
+  string language = 6;
+  // 客户端的包名
+  string bundle_id = 7;
+  // 客户端版本号
+  string bundle_version = 8;
+  // 设备 ID
+  string device_id = 9;
+  // 设备名称
+  string device_name = 10;
+  // 设备型号
+  string device_model = 11;
+  // 操作系统类型
+  string os_type = 12;
+  // 操作系统版本号
+  string os_version = 13;
+  // 分包标识
+  string variant = 14;
+}
+
+enum IdentityProvider {
+  // 无效值
+  UNSPECIFIED = 0;
+  // 游客登录
+  GUEST = 1;
+  // 世游通行证
+  SEAYOO = 2;
+  // 微信登录
+  WEIXIN = 3;
+  // Sign-in with Apple
+  APPLE = 4;
+  // Google Account
+  GOOGLE = 5;
+  // Facebook Login
+  FACEBOOK = 6;
+  // 小米账号
+  XIAOMI = 7;
+  // 华为帐号
+  HUAWEI = 8;
+  // OPPO 账号
+  OPPO = 9;
+  // VIVO 账号
+  VIVO = 10;
+  // 抖音授权登录
+  DOUYIN = 11;
+  // 应用宝 YSDK 登录
+  YINGYONGBAO = 12;
+  // TapTap 登录
+  TAPTAP = 13;
+  // UC 登录
+  UC = 14;
+  // 荣耀登陆
+  HONOR = 15;
+  // Bilibili 登录
+  BILIBILI = 16;
+  // 4399 登录
+  M4399 = 17;
+  // 雷电模拟器
+  LEIDIAN = 18;
+  // 猫窝
+  MAOWO = 19;
+  // 联想
+  LENOVO = 20;
+  MEIZU = 21;
+  NUBIA = 22;
+  COOLPAD = 23;
+  // 绝峰
+  JUEFENG = 24;
+  MEITUO = 25;
+}
+
+// https://kdocs.cn/l/cg0cfHzazsta?linkname=yRNdQojvFU
+message GuestCredential {
+  //游客的唯一标识。
+  //格式规则：
+  //• 通过 UUID v4 生成。
+  //• 长度固定 36 个字符。
+  //• 全小写。
+  //示例：
+  //• f8dfe864-4817-4b3c-979b-788c48a10b8e
+  string guest_id = 1;
+  //游客的登录密钥。
+  //格式规则：
+  //• 生成 UUID v4 后，将分隔符 - 去除。
+  //• 长度固定 32 个字符。
+  //• 全小写。
+  //示例：
+  //• 70d70a63b1c6487a9f8b7b035ce8327c
+  string guest_secret = 2;
+}
+
+// https://d7n9vj8ces.feishu.cn/docx/SSeXdbefjoVLW3xzSdtc7ixkngd#K0madvBZ0ohSU0xMmRBc5ENxnrb
+message SeayooCredential {
+  string user_id = 1;
+  string token = 2;
+  ClientMeta client_meta = 3;
+}
+
+// https://developers.weixin.qq.com/doc/oplatform/Mobile_App/WeChat_Login/Development_Guide.html
+message WeixinCredential {
+  string code = 1;
+}
+
+// https://developer.apple.com/documentation/sign_in_with_apple/sign_in_with_apple_rest_api/authenticating_users_with_sign_in_with_apple
+// https://medium.com/playkids-tech-blog/implementing-sign-in-with-apple-on-the-server-side-76b711ed1f2b
+message AppleCredential {
+  // https://developer.apple.com/documentation/authenticationservices/asauthorizationappleidcredential/3153035-identitytoken
+  string identity_token = 1;
+  // The user's full name is not included in the user's identity token
+  // https://developer.apple.com/documentation/authenticationservices/asauthorizationappleidcredential/3180384-fullname
+  string full_name = 2;
+}
+
+// https://developers.google.com/identity/one-tap/android/idtoken-auth
+message GoogleCredential {
+  string id_token = 1;
+}
+
+// https://developers.facebook.com/docs/graph-api/reference/v18.0/debug_token
+message FacebookCredential {
+  // https://developers.facebook.com/docs/facebook-login/guides/access-tokens/#usertokens
+  string user_access_token = 1;
+}
+
+message XiaomiCredential {
+  string uid = 1;
+  string session = 2;
+}
+
+message OppoCredential {
+  string token = 1;
+  string ssoid = 2;
+  int32 age = 3;
+}
+
+message VivoCredential {
+  string auth_token = 1;
+  int32 age = 2;
+}
+
+message HuaweiCredential {
+  string access_token = 1;
+  string display_name = 2;
+  string authorization_code = 3;
+}
+
+message TapTapCredential {
+  string kid = 1;
+  string mac_key = 2;
+  int32 age_range = 3;
+}
+
+message UcCredential {
+  string sid = 1;
+}
+
+message YingyongbaoCredential {
+  string auth_method = 1;
+  string openid = 2;
+  string openkey = 3;
+}
+
+message HonorCredential {
+  string union_token = 1;
+}
+
+message BilibiliCredential {
+  string access_key = 1;
+  int64 uid = 2;
+}
+
+message M4399Credential {
+  string token = 1;
+  string uid = 2;
+}
+
+// https://game.open.douyin.com/support/content/131748?graphId=537&mappingType=2&timestamp=1710330075693
+message DouyinCredential {
+  string access_token = 1;
+}
+
+// https://docs.ldmnq.com/docs/VCvidM
+message LeidianCredential {
+  string usertoken = 1;
+  string useruid = 2;
+  bool is_adult = 3;
+  string birthday = 4;
+}
+
+// https://maowoyx.com
+message MaowoCredential {
+  string mem_id = 1;
+  string user_token = 2;
+}
+
+// https://open.lenovomm.com/developer/doc?id=1559820567843188738
+message LenovoCredential {
+  string st = 1;
+  // 是否完成实名
+  bool is_authened = 2;
+  int32 age = 3;
+  // 发起请求的平台：android/windows
+  string platform = 4;
+}
+
+// https://open.mlinkapp.com/docs?id=42
+message MeizuCredential {
+  string uid = 1;
+  string session_id = 2;
+}
+
+// https://appdev-cms.nubia.com/ueditor/jsp/upload/file/20220128/1643362851832029922.docx
+message NubiaCredential {
+  string uid = 1;
+  string game_id = 2;
+  string session_id = 3;
+}
+
+// https://coolpad.feishu.cn/docs/doccn27GIyclcA7fTsYMTZXRZ1K
+message CoolpadCredential {
+  string auth_code = 1;
+}
+
+message JuefengCredential {
+  string user_id = 1;
+  string user_name = 2;
+  string user_token = 3;
+  bool is_authenticated = 4;
+  int32 age = 5;
+}
+
+message MeituoCredential {
+  string uid = 1;
+  string channel = 2;
+  string token = 3;
+  string birthday = 4;
+  bool is_real_name = 5;
+  int32 age = 6;
+}
+
+message Credential {
+  IdentityProvider idp = 1;
+  oneof credential {
+    GuestCredential guest = 2;
+    SeayooCredential seayoo = 3;
+    WeixinCredential weixin = 4;
+    AppleCredential apple = 5;
+    GoogleCredential google = 6;
+    FacebookCredential facebook = 7;
+    XiaomiCredential xiaomi = 8;
+    OppoCredential oppo = 9;
+    VivoCredential vivo = 10;
+    HuaweiCredential huawei = 11;
+    TapTapCredential taptap = 12;
+    UcCredential uc = 13;
+    YingyongbaoCredential yingyongbao = 14;
+    HonorCredential honor = 15;
+    BilibiliCredential bilibili = 16;
+    M4399Credential m4399 = 17;
+    DouyinCredential douyin = 18;
+    LeidianCredential leidian = 19;
+    MaowoCredential maowo = 20;
+    LenovoCredential lenovo = 21;
+    MeizuCredential meizu = 22;
+    NubiaCredential nubia = 23;
+    CoolpadCredential coolpad = 24;
+    JuefengCredential juefeng = 25;
+    MeituoCredential meituo = 26;
+  }
+}
+
+message Identity {
+  enum Gender {
+    // 未知
+    UNKNOWN = 0;
+    // 男性
+    MALE = 1;
+    // 女性
+    FEMALE = 2;
+  }
+  IdentityProvider idp = 1;
+  string external_id = 2;
+  string external_name = 3;
+  // 用户身份的元数据，包含哪些内容取决于 IdP
+  map<string, string> meta = 4;
+  // 首次 SignIn 生成此 Identity 的时间戳，Unix Timestamp in Seconds
+  int64 created_at = 5;
+  // 是否需要实名认证才能进入游戏。
+  // 注意：
+  // 1. 实名认证只有中国大陆才必需，海外部署的系统会关闭实名认证功能，此时 real_name_required 始终为 false
+  // 2. 在中国大陆，也并非所有的 IdP 都需要进行实名认证。有些 IdP 本身就包含了实名认证后才能进入游戏的功能，比如世游通行证、各个 Android 应用商店的账号等。
+  // 3. 只有在中国大陆，且 IdP 不包含实名认证功能时，才需要进行实名认证。例如微信登录、Sign in with Apple 等等。
+  bool real_name_required = 6;
+  // 实名认证后，由 account-person 返回的自然人 ID。没有实名认证信息时，取值为 0
+  int64 person_id = 7;
+  // 基于实名认证信息得到的年龄。没有实名认证信息时，取值为 0
+  int32 age = 8;
+  // 性别
+  Gender gender = 9;
+}
+
+// All Fields are required
+message SignInRequest {
+  string game_id = 1;
+  Credential credential = 2;
+  // 首次登录时写入，后续登录时不再更新
+  ClientMeta client_meta = 3;
+  // 友盟 https://kdocs.cn/l/crDrV4Fa1hzS
+  string upush_device_token = 4;
+}
+
+message SignInResponse {
+  string combo_id = 1;
+  Identity identity = 2;
+  // 是否是新注册用户
+  bool is_new_user = 3;
+}
+
+// All Fields are required
+message LinkIdentityRequest {
+  string game_id = 1;
+  string combo_id = 2;
+  // combo_id 对应的 IdP
+  IdentityProvider idp = 3;
+  // 要关联的外部身份
+  Credential credential = 4;
+  // 关联时写入，后续登录时不再更新
+  ClientMeta client_meta = 5;
+}
+
+message LinkIdentityResponse {
+  string combo_id = 1;
+  Identity current = 2;
+  Identity linked = 3;
+}
+
+message UnlinkIdentityRequest {
+  string combo_id = 1;
+  IdentityProvider idp = 2;
+}
+
+message UnlinkIdentityResponse {
+}
+
+message DeleteIdentitiesRequest {
+  string combo_id = 1;
+}
+
+message DeleteIdentitiesResponse {
+}
+
+message AuthRealNameRequest {
+  string game_id = 1;
+  string combo_id = 2;
+  IdentityProvider idp = 3;
+  // 真实姓名
+  string real_name = 4;
+  // 身份证号码（18位）
+  string identity_card = 5;
+  ClientMeta client_meta = 6;
+}
+
+message AuthRealNameResponse {
+  enum Result {
+    OK = 0;       // 认证通过
+    PENDING = 1;  // 认证中，此时允许进入游戏
+    REJECTED = 2; // 认证不通过：非法身份证、非法姓名、身份证与姓名不匹配、身份证未注册
+  }
+  Result result = 1;
+  // （Result 为 OK 时才有值）实名认证后，由 account-person 返回的自然人 ID。
+  int64 person_id = 2;
+  // （Result 为 OK 时才有值）基于实名认证信息得到的年龄。
+  int32 age = 3;
+}
+
+// 请求外部身份在 auth 的身份
+message GetIdentityRequest {
+  // 必填参数
+  IdentityProvider idp = 1;
+  string external_id = 2;
+  // 可选参数, 不填则返回所有游戏的 Identity
+  string game_id = 3;
+}
+
+// 返回指定外部身份对应的游戏身份
+message GetIdentityResponse {
+  message GameIdentity {
+    string game_id = 1;
+    string combo_id = 2;
+    Identity identity = 3;
+  }
+  repeated GameIdentity identities = 1;
+}
+
+message GetIdentitiesByExternalIdRequest {
+  // 必填参数
+  IdentityProvider idp = 1;
+  string external_id = 2;
+  // 可选参数, 不填则返回所有游戏的 Identity
+  string game_id = 3;
+}
+
+message GetIdentitiesByExternalIdResponse {
+  message GameIdentity {
+    string game_id = 1;
+    string combo_id = 2;
+    Identity identity = 3;
+  }
+  repeated GameIdentity identities = 1;
+}
+
+
+// All Fields are required
+message GetIdentitiesRequest {
+  string game_id = 1;
+  string combo_id = 2;
+  // Optional, 指定返回记录的最大条数
+  // 0 表示不限制
+  int32 limit = 3;
+}
+
+message GetIdentitiesResponse {
+  string game_id = 1;
+  string combo_id = 2;
+  repeated Identity identities = 3;
+}
+
+// All Fields are required
+message GetIdentitiesByComboIdRequest {
+  string game_id = 1;
+  string combo_id = 2;
+  // Optional, 指定返回记录的最大条数
+  // 0 表示不限制
+  int32 limit = 3;
+}
+
+message GetIdentitiesByComboIdResponse {
+  string game_id = 1;
+  string combo_id = 2;
+  repeated Identity identities = 3;
+}
+
+message GetClientMetaRequest {
+  string game_id = 1;
+  string combo_id = 2;
+  IdentityProvider idp = 3;
+}
+
+message GetClientMetaResponse {
+  string game_id = 1;
+  string combo_id = 2;
+  IdentityProvider idp = 3;
+  ClientMeta client_meta = 4;
+}
+
+message DescribeIdentityProvidersRequest {
+  // empty
+}
+
+message IdentityProviderInfo {
+  // IdP 的枚举类型标识
+  IdentityProvider idp = 1;
+  // IdP 所属的 Domain，参见 central 服务
+  string domain = 2;
+  // 程序内部使用的 IdP 名称。可用于对外的 REST API。例如 seayoo, apple, google, facebook
+  string name = 3;
+  // IdP 的显示名称，给人看。例如 世游通行证, Sign in with Apple
+  string display_name = 4;
+  // IdP 的图标 URL
+  string icon_url = 5;
+  // IdP 是否自己处理了用户进入游戏前的实名认证，这样世游侧就不需要再处理了
+  bool handles_real_name = 6;
+  // IdP 是否自己处理了游戏防沉迷逻辑，这样世游侧就不需要再处理了
+  bool handles_fangchenmi = 7;
+}
+
+message DescribeIdentityProvidersResponse {
+  repeated IdentityProviderInfo providers = 1;
+}
+
+message DescribeServiceRequest {}
+
+message DescribeServiceResponse {
+  // 是否允许接触 IdP 关联
+  bool unlink_identity_enabled = 1;
+  // 是否允许删除所有关联的 IdP (删除用户信息)
+  bool delete_identities_enabled = 2;
+}
+
+enum DenyType {
+  // 无效值
+  UNSPECIFIED_BAN_TYPE = 0;
+  // 封禁 Combo ID
+  COMBO_ID = 1;
+  // 封禁设备
+  DEVICE_ID = 2;
+  // 封禁 IP
+  IP_ADDRESS = 3;
+}
+
+message Denylist {
+  string game_id = 1;
+  DenyType deny_type = 2;
+  string deny_value = 3;
+  string deny_reason = 4;
+  string origin = 5;
+  string operator = 6;
+  string batch_id = 7;
+  int64 created_at = 8;
+}
+
+message AddDenylistRequest {
+  message Record {
+    DenyType deny_type = 1;
+    string deny_value = 2;
+    string deny_reason = 3;
+    string origin = 4;
+    string operator = 5;
+  }
+  string game_id = 1;
+  repeated Record records = 2;
+}
+
+message AddDenylistResponse {
+  string batch_id = 1;
+}
+
+message RemoveDenylistRequest {
+  message Record {
+    DenyType deny_type = 1;
+    string deny_value = 2;
+    string deny_reason = 3;
+    string origin = 4;
+    string operator = 5;
+  }
+  string game_id = 1;
+  repeated Record records = 2;
+}
+
+message RemoveDenylistResponse {
+  string batch_id = 1;
+}
+
+message QueryDenylistRequest {
+  message PageOptions {
+    int32 page_size = 1;
+    // Start from 1
+    int32 page_num = 2;
+  }
+  message QueryOptions {
+    DenyType deny_type = 1;
+    string deny_value = 2;
+  }
+  // Required
+  string game_id = 1;
+  PageOptions page = 2;
+  repeated QueryOptions options = 3;
+}
+
+message QueryDenylistResponse {
+  int32 total_num = 1;
+  repeated Denylist records = 2;
+}
+
+message ListDenylistRequest{
+  message CursorOptions {
+    // max_results 和 next_token 用于 cursor 分页机制，语义可参考
+    // https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
+    int32 max_results = 1;
+    string next_token = 2;
+  }
+  message QueryOptions {
+    DenyType deny_type = 1;
+    string deny_value = 2;
+  }
+  string game_id = 1;
+  CursorOptions cursor = 2;
+  repeated QueryOptions options = 3;
+}
+
+message ListDenylistResponse {
+  repeated Denylist records = 1;
+  // 下一页的 token，用于 cursor 分页机制。
+  // 若无值，则表示没有更多数据了。
+  string next_token = 2;
+  uint64 total_results = 3;
+}

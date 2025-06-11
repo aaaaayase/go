@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+// 最终生成的go文件是在哪个目录哪个包中的
+option go_package=".;service";
+
+// 然后我们需要定义一个服务 这个服务中需要有一个方法 这个方法可以接受客户端的参数 再返回客户端的响应
+service SayHello {
+  rpc SayHello (HelloRequest) returns (HelloResponse);
+}
+
+message HelloResponse {
+  string Message = 1;
+}
+
+message HelloRequest {
+  string Name = 1;
+}
