@@ -57,8 +57,13 @@ func main() {
 			return
 		}
 
-		// 调用grpc
-		comboId := signIn(c, &req)
+		// 调用grpc 完成登录请求
+		err, comboId := signIn(c, &req)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
 		if comboId != "" {
 			c.JSON(http.StatusOK, gin.H{"combo_Id": comboId})
 		}
@@ -68,12 +73,12 @@ func main() {
 	router.Run(":8081")
 }
 
-func signIn(c *gin.Context, req *SignInRequest) string {
+func signIn(c *gin.Context, req *SignInRequest) (error, string) {
 	// grpc调用
 	conn, err := grpc.Dial("127.0.0.1:8082", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{})
-		return ""
+		return err, ""
 	}
 	defer conn.Close()
 	// 跟服务端建立连接
@@ -92,11 +97,11 @@ func signIn(c *gin.Context, req *SignInRequest) string {
 	if resp == nil && err != nil {
 		if status.Code(err) == codes.Unauthenticated {
 			c.JSON(http.StatusUnauthorized, gin.H{})
-			return ""
+			return err, ""
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{})
-			return ""
+			return err, ""
 		}
 	}
-	return resp.ComboId
+	return nil, resp.ComboId
 }
