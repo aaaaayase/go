@@ -4,6 +4,11 @@ database:
   MaxOpenCons: 114
 
 redis:
-  addr: localhost:6379
-  DB: 0
-  Password: ""
+  cluster: true  # 启用集群模式
+  addrs: # 集群节点地址列表
+    - "localhost:6371"  # redis1
+    - "localhost:6372"  # redis2
+    - "localhost:6373"  # redis3
+    - "localhost:6374"  # redis4
+  password: ""   # 如果有密码则填写
+  pool_size: 10  # 连接池大小

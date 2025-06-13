@@ -13,9 +13,10 @@ type Config struct {
 	}
 
 	Redis struct {
-		Addr     string
-		DB       int
+		Cluster  bool
+		Addrs    []string
 		Password string
+		PoolSize int
 	}
 }
 

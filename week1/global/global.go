@@ -7,4 +7,4 @@ import (
 
 var Db *gorm.DB
 
-var RedisDB *redis.Client
+var RedisDB *redis.ClusterClient

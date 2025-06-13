@@ -7,10 +7,10 @@ import (
 )
 
 func initRedis() {
-	RedisClient := redis.NewClient(&redis.Options{
-		Addr:     AppConfig.Redis.Addr,
+	RedisClient := redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs:    AppConfig.Redis.Addrs,
 		Password: AppConfig.Redis.Password,
-		DB:       AppConfig.Redis.DB,
+		PoolSize: AppConfig.Redis.PoolSize,
 	})
 
 	_, err := RedisClient.Ping().Result()
