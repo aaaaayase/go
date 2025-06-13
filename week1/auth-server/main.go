@@ -79,10 +79,12 @@ func (server *Server) SignIn(c context.Context, req *pb.SignInRequest) (*pb.Sign
 	if response.Errcode != 200 {
 		return nil, status.Errorf(codes.Unauthenticated, "unauthorized")
 	}
-	// 判断是否是第一次登录
+
 	var count int64
 	global.Db.AutoMigrate(&ComboUser{})
 	global.Db.AutoMigrate(&RealNameCache{})
+	// 判断是否是第一次登录
+	// 将传入数据作为唯一标识查询记录数
 	global.Db.Where("external_id==?", req.Credential.Idp.String()).Count(&count)
 	var comboIdR string
 	if count == 0 {
