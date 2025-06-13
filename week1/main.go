@@ -60,7 +60,6 @@ func main() {
 		// 调用grpc 完成登录请求
 		err, comboId := signIn(c, &req)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{})
 			return
 		}
 
